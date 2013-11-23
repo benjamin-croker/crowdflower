@@ -40,7 +40,7 @@ def eval_model(df):
     # logistic regression model with defaults
     lin_cl = LinearRegression()
     # rf model
-    rf_cl = RandomForestRegressor(n_estimators=200, min_samples_split=16, random_state=SEED)
+    rf_cl = RandomForestRegressor(n_estimators=100, min_samples_split=16, random_state=SEED)
 
     for train_indices, fold_eval_indices in kf:
         print("Evaluating fold {} of {}".format(fold_n+1, 10))
@@ -70,7 +70,7 @@ def eval_model(df):
         # use the most important words to train RF classifier
         # take the max absolute value from all one-v-all subclassifiers
         coef = np.abs(lin_cl.coef_).mean(0)
-        important_words_ind = np.argsort(coef)[-200:]
+        important_words_ind = np.argsort(coef)[-100:]
 
         X_train_dense = X_train[:, important_words_ind].todense()
         X_eval_dense = X_eval[:, important_words_ind].todense()
