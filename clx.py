@@ -32,8 +32,8 @@ def eval_model(df):
     # perform k-fold validation
     kf = KFold(n=df.shape[0], n_folds=10, random_state=SEED, shuffle=True)
     rms_scores_lin = np.zeros(10)
-    #rms_scores_rf = np.zeros(10)
-    #rms_scores_comb = np.zeros(10)
+    rms_scores_rf = np.zeros(10)
+    rms_scores_comb = np.zeros(10)
 
     fold_n = 0
     
