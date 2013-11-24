@@ -65,30 +65,31 @@ def eval_model(df):
         print("Training linear model")
         lin_cl.fit(X_train, y_train)
         lin_preds = lin_cl.predict(X_eval)
-        rms_scores_lin[fold_n] = mean_squared_error(y_eval, lin_preds)
+        rms_scores_lin[fold_n] = np.sqrt(np.sum(np.array(np.array(lin_preds-y_eval)**2)/(X_eval.shape[0]*24.0)))
+
 
         # use the most important words to train RF classifier
         # take the max absolute value from all one-v-all subclassifiers
-        coef = np.abs(lin_cl.coef_).mean(0)
-        important_words_ind = np.argsort(coef)[-100:]
+        #coef = np.abs(lin_cl.coef_).mean(0)
+        #important_words_ind = np.argsort(coef)[-100:]
+        #
+        #X_train_dense = X_train[:, important_words_ind].todense()
+        #X_eval_dense = X_eval[:, important_words_ind].todense()
 
-        X_train_dense = X_train[:, important_words_ind].todense()
-        X_eval_dense = X_eval[:, important_words_ind].todense()
-
-        print("Training random forest model")
-        rf_cl.fit(X_train_dense, y_train)
-        rf_preds = rf_cl.predict(X_eval_dense)
-        rms_scores_rf[fold_n] = mean_squared_error(y_eval, rf_preds)
+        #print("Training random forest model")
+        #rf_cl.fit(X_train_dense, y_train)
+        #rf_preds = rf_cl.predict(X_eval_dense)
+        #rms_scores_rf[fold_n] = np.sqrt(np.sum(np.array(np.array(rf_preds-y_eval)**2)/(X_eval.shape[0]*24.0)))
 
         # combine predictions
-        comb_preds = 0.5*lin_preds + 0.5*rf_preds
-        rms_scores_comb[fold_n] = mean_squared_error(y_eval, comb_preds)
+        #comb_preds = 0.5*lin_preds + 0.5*rf_preds
+        #rms_scores_comb[fold_n] = mean_squared_error(y_eval, comb_preds)
 
         fold_n += 1
 
-    print("Mean Log Accuracy:{}, Std:{}".format(np.mean(rms_scores_lin), np.std(rms_scores_lin)))
-    print("Mean RF Accuracy:{}, Std:{}".format(np.mean(rms_scores_rf), np.std(rms_scores_rf)))
-    print("Mean Combined Accuracy:{}, Std:{}".format(np.mean(rms_scores_comb), np.std(rms_scores_comb)))
+    print("Mean Linear RMS error:{}, Std:{}".format(np.mean(rms_scores_lin), np.std(rms_scores_lin)))
+    #print("Mean RF RMS error:{}, Std:{}".format(np.mean(rms_scores_rf), np.std(rms_scores_rf)))
+    #print("Mean Combined RMS error:{}, Std:{}".format(np.mean(rms_scores_comb), np.std(rms_scores_comb)))
 
 if __name__ == "__main__":
     #df = load_raw_tweets()
