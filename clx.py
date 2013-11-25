@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 import os
+import pickle
 
 from sklearn.linear_model import LinearRegression
 from sklearn.ensemble import RandomForestRegressor
@@ -67,29 +68,37 @@ def eval_model(df):
         lin_preds = lin_cl.predict(X_eval)
         rms_scores_lin[fold_n] = np.sqrt(np.sum(np.array(np.array(lin_preds-y_eval)**2)/(X_eval.shape[0]*24.0)))
 
+       # save the predictions
+        with open("lin_preds.pkl", "wb") as f:
+            pickle.dump(lin_preds, f)
 
         # use the most important words to train RF classifier
         # take the max absolute value from all one-v-all subclassifiers
-        #coef = np.abs(lin_cl.coef_).mean(0)
-        #important_words_ind = np.argsort(coef)[-100:]
-        #
-        #X_train_dense = X_train[:, important_words_ind].todense()
-        #X_eval_dense = X_eval[:, important_words_ind].todense()
+        coef = np.abs(lin_cl.coef_).mean(0)
+        important_words_ind = np.argsort(coef)[-100:]
 
-        #print("Training random forest model")
-        #rf_cl.fit(X_train_dense, y_train)
-        #rf_preds = rf_cl.predict(X_eval_dense)
-        #rms_scores_rf[fold_n] = np.sqrt(np.sum(np.array(np.array(rf_preds-y_eval)**2)/(X_eval.shape[0]*24.0)))
+        X_train_dense = X_train[:, important_words_ind].todense()
+        X_eval_dense = X_eval[:, important_words_ind].todense()
 
-        # combine predictions
-        #comb_preds = 0.5*lin_preds + 0.5*rf_preds
-        #rms_scores_comb[fold_n] = mean_squared_error(y_eval, comb_preds)
+        print("Training random forest model")
+        rf_cl.fit(X_train_dense, y_train)
+        rf_preds = rf_cl.predict(X_eval_dense)
+        rms_scores_rf[fold_n] = np.sqrt(np.sum(np.array(np.array(rf_preds-y_eval)**2)/(X_eval.shape[0]*24.0)))
+
+       # save the predictions
+        with open("rf_preds.pkl", "wb") as f:
+            pickle.dump(rf_preds, f)
+
+
+        #combine predictions
+        comb_preds = 0.5*lin_preds + 0.5*rf_preds
+        rms_scores_comb[fold_n] = mean_squared_error(y_eval, comb_preds)
 
         fold_n += 1
 
     print("Mean Linear RMS error:{}, Std:{}".format(np.mean(rms_scores_lin), np.std(rms_scores_lin)))
-    #print("Mean RF RMS error:{}, Std:{}".format(np.mean(rms_scores_rf), np.std(rms_scores_rf)))
-    #print("Mean Combined RMS error:{}, Std:{}".format(np.mean(rms_scores_comb), np.std(rms_scores_comb)))
+    print("Mean RF RMS error:{}, Std:{}".format(np.mean(rms_scores_rf), np.std(rms_scores_rf)))
+    print("Mean Combined RMS error:{}, Std:{}".format(np.mean(rms_scores_comb), np.std(rms_scores_comb)))
 
 if __name__ == "__main__":
     #df = load_raw_tweets()
