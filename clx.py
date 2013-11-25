@@ -96,7 +96,7 @@ def eval_model(df):
 
 
         #combine predictions
-        comb_preds = 0.5*lin_preds + 0.5*rf_preds
+        comb_preds = 0.8*lin_preds + 0.2*rf_preds
         rms_scores_comb[fold_n] = np.sqrt(np.sum(np.array(np.array(comb_preds-y_eval)**2)/(X_eval.shape[0]*24.0)))
 
         fold_n += 1
