@@ -36,6 +36,9 @@ def eval_model(df):
     rms_scores_rf = np.zeros(10)
     rms_scores_comb = np.zeros(10)
 
+    all_lin_preds = []
+    all_rf_preds = []
+
     fold_n = 0
     
     # logistic regression model with defaults
@@ -68,9 +71,10 @@ def eval_model(df):
         lin_preds = lin_cl.predict(X_eval)
         rms_scores_lin[fold_n] = np.sqrt(np.sum(np.array(np.array(lin_preds-y_eval)**2)/(X_eval.shape[0]*24.0)))
 
-       # save the predictions
+        # save the predictions
+        all_lin_preds.append(lin_preds)
         with open("lin_preds.pkl", "wb") as f:
-            pickle.dump(lin_preds, f)
+            pickle.dump(all_lin_preds, f)
 
         # use the most important words to train RF classifier
         # take the max absolute value from all one-v-all subclassifiers
@@ -86,13 +90,14 @@ def eval_model(df):
         rms_scores_rf[fold_n] = np.sqrt(np.sum(np.array(np.array(rf_preds-y_eval)**2)/(X_eval.shape[0]*24.0)))
 
        # save the predictions
+        all_rf_preds.append(rf_preds)
         with open("rf_preds.pkl", "wb") as f:
-            pickle.dump(rf_preds, f)
+            pickle.dump(all_rf_preds, f)
 
 
         #combine predictions
         comb_preds = 0.5*lin_preds + 0.5*rf_preds
-        rms_scores_comb[fold_n] = mean_squared_error(y_eval, comb_preds)
+        rms_scores_comb[fold_n] = np.sqrt(np.sum(np.array(np.array(comb_preds-y_eval)**2)/(X_eval.shape[0]*24.0)))
 
         fold_n += 1
 
