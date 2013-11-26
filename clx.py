@@ -28,7 +28,7 @@ def remove_stopwords(concat_tweets):
             for tweets in concat_tweets]
 
 
-def gen_cv_predictions(df):
+def gen_cv_predictions(df, cache_results=True, non_sparse=True):
     """ Generates predictions for 10-fold cross validation
     """
 
@@ -70,25 +70,29 @@ def gen_cv_predictions(df):
 
         # save the predictions
         all_lin_preds.append(lin_preds)
-        with open("lin_preds.pkl", "wb") as f:
-            pickle.dump(all_lin_preds, f)
+        if cache_results:
+            with open("lin_preds.pkl", "wb") as f:
+                pickle.dump(all_lin_preds, f)
 
-        # use the most important words to train RF classifier
-        # take the max absolute value from all one-v-all subclassifiers
-        coef = np.abs(lin_cl.coef_).mean(0)
-        important_words_ind = np.argsort(coef)[-100:]
+        # only train non-sparse models if required, as they take a long time
+        if non_sparse:
+            # use the most important words to train RF classifier
+            # take the max absolute value from all one-v-all subclassifiers
+            coef = np.abs(lin_cl.coef_).mean(0)
+            important_words_ind = np.argsort(coef)[-100:]
 
-        X_train_dense = X_train[:, important_words_ind].todense()
-        X_eval_dense = X_eval[:, important_words_ind].todense()
+            X_train_dense = X_train[:, important_words_ind].todense()
+            X_eval_dense = X_eval[:, important_words_ind].todense()
 
-        print("Training random forest model")
-        rf_cl.fit(X_train_dense, y_train)
-        rf_preds = rf_cl.predict(X_eval_dense)
+            print("Training random forest model")
+            rf_cl.fit(X_train_dense, y_train)
+            rf_preds = rf_cl.predict(X_eval_dense)
 
-       # save the predictions
-        all_rf_preds.append(rf_preds)
-        with open("rf_preds.pkl", "wb") as f:
-            pickle.dump(all_rf_preds, f)
+           # save the predictions
+            if cache_results:
+                all_rf_preds.append(rf_preds)
+                with open("rf_preds.pkl", "wb") as f:
+                    pickle.dump(all_rf_preds, f)
 
         fold_n += 1
 
