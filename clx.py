@@ -3,7 +3,7 @@ import numpy as np
 import os
 import pickle
 
-from sklearn.linear_model import LinearRegression, Ridge
+from sklearn.linear_model import LinearRegression, Ridge, Lasso
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.cross_validation import KFold
 from sklearn.feature_extraction.text import TfidfVectorizer
@@ -41,7 +41,7 @@ def gen_cv_predictions(df, lin_preds_fn="lin_preds.pkl", ridge_preds_fn="ridge_p
     fold_n = 0
 
     # logistic regression model with defaults
-    lin_cl = LinearRegression()
+    lin_cl = Lasso()
     # rf model
     ridge_cl = Ridge(alpha=3.0)
 
@@ -59,14 +59,14 @@ def gen_cv_predictions(df, lin_preds_fn="lin_preds.pkl", ridge_preds_fn="ridge_p
 
         # extract all the y values, which are in column 4 onwards
         y_train = np.array(df)[train_indices, 4:]
-        y_eval = np.array(df)[fold_eval_indices, 4:]
 
         # convert to float arrays
         y_train = np.array(y_train, dtype="float")
 
         print("Training linear model")
         lin_cl.fit(X_train, y_train)
-        lin_preds = lin_cl.predict(X_eval)
+        # manually fit the Lasso regression
+        lin_preds = X_eval * np.transpose(lin_cl.sparse_coef_) + np.array(lin_cl.intercept_)
 
         # save the predictions
         all_lin_preds.append(lin_preds)
@@ -109,7 +109,7 @@ def eval_model(df, lin_preds_fn="lin_preds.pkl", ridge_preds_fn="ridge_preds.pkl
         # convert to float arrays
         y_eval = np.array(y_eval, dtype="float")
 
-        lin_preds = all_lin_preds[fold_n]
+        lin_preds = np.array(all_lin_preds[fold_n])
         # probabilities for certain predictions should sum to 1
         # normalise the 'S' predictions
         lin_preds[:, 0:5] /= lin_preds[:, 0:5].sum(1, keepdims=True)
