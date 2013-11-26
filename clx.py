@@ -28,7 +28,7 @@ def remove_stopwords(concat_tweets):
             for tweets in concat_tweets]
 
 
-def gen_cv_predictions(df, cache_results=True, non_sparse=True):
+def gen_cv_predictions(df, lin_preds_fn="lin_preds.pkl", ridge_preds_fn="ridge_preds.pkl", non_sparse=True):
     """ Generates predictions for 10-fold cross validation
     """
 
@@ -36,14 +36,14 @@ def gen_cv_predictions(df, cache_results=True, non_sparse=True):
     kf = KFold(n=df.shape[0], n_folds=10, random_state=SEED, shuffle=True)
 
     all_lin_preds = []
-    all_rf_preds = []
+    all_ridge_preds = []
 
     fold_n = 0
 
     # logistic regression model with defaults
     lin_cl = LinearRegression()
     # rf model
-    rf_cl = RandomForestRegressor(n_estimators=100, min_samples_split=16, random_state=SEED)
+    ridge_cl = Ridge(alpha=3.0)
 
     for train_indices, fold_eval_indices in kf:
         print("Evaluating fold {} of {}".format(fold_n+1, 10))
@@ -70,48 +70,36 @@ def gen_cv_predictions(df, cache_results=True, non_sparse=True):
 
         # save the predictions
         all_lin_preds.append(lin_preds)
-        if cache_results:
-            with open("lin_preds.pkl", "wb") as f:
-                pickle.dump(all_lin_preds, f)
+        with open(lin_preds_fn, "wb") as f:
+            pickle.dump(all_lin_preds, f)
 
-        # only train non-sparse models if required, as they take a long time
-        if non_sparse:
-            # use the most important words to train RF classifier
-            # take the max absolute value from all one-v-all subclassifiers
-            coef = np.abs(lin_cl.coef_).mean(0)
-            important_words_ind = np.argsort(coef)[-100:]
+        print("Training ridge regression model")
+        ridge_cl.fit(X_train, y_train)
+        ridge_preds = ridge_cl.predict(X_eval)
 
-            X_train_dense = X_train[:, important_words_ind].todense()
-            X_eval_dense = X_eval[:, important_words_ind].todense()
-
-            print("Training random forest model")
-            rf_cl.fit(X_train_dense, y_train)
-            rf_preds = rf_cl.predict(X_eval_dense)
-
-           # save the predictions
-            if cache_results:
-                all_rf_preds.append(rf_preds)
-                with open("rf_preds.pkl", "wb") as f:
-                    pickle.dump(all_rf_preds, f)
+       # save the predictions
+        all_ridge_preds.append(ridge_preds)
+        with open(ridge_preds_fn, "wb") as f:
+            pickle.dump(all_ridge_preds, f)
 
         fold_n += 1
 
 
-def eval_model(df, lin_preds_fn="lin_preds.pkl", rf_preds_fn="rf_preds.pkl", weights=(0.8, 0.2)):
+def eval_model(df, lin_preds_fn="lin_preds.pkl", ridge_preds_fn="ridge_preds.pkl", weights=(0.1, 0.9)):
     """ evaluates the results of the 10 fold CV
     """
 
     # perform k-fold validation
     kf = KFold(n=df.shape[0], n_folds=10, random_state=SEED, shuffle=True)
     rms_scores_lin = np.zeros(10)
-    rms_scores_rf = np.zeros(10)
+    rms_scores_ridge = np.zeros(10)
     rms_scores_comb = np.zeros(10)
 
     with open(lin_preds_fn) as f:
         all_lin_preds = pickle.load(f)
 
-    with open(rf_preds_fn) as f:
-        all_rf_preds = pickle.load(f)
+    with open(ridge_preds_fn) as f:
+        all_ridge_preds = pickle.load(f)
 
     fold_n = 0
 
@@ -124,32 +112,31 @@ def eval_model(df, lin_preds_fn="lin_preds.pkl", rf_preds_fn="rf_preds.pkl", wei
         lin_preds = all_lin_preds[fold_n]
         # probabilities for certain predictions should sum to 1
         # normalise the 'S' predictions
-        print lin_preds[:, 5:9].sum(1, keepdims=True)
         lin_preds[:, 0:5] /= lin_preds[:, 0:5].sum(1, keepdims=True)
         # normalise the 'W' predictions
         lin_preds[:, 5:9] /= lin_preds[:, 5:9].sum(1, keepdims=True)
 
         rms_scores_lin[fold_n] = np.sqrt(np.sum(np.array(np.array(lin_preds-y_eval)**2)/(len(fold_eval_indices) * 24.0)))
 
-        rf_preds = all_rf_preds[fold_n]
+        ridge_preds = all_ridge_preds[fold_n]
         # normalise the 'S' predictions
-        rf_preds[:, 0:5] /= rf_preds[:, 0:5].sum(1, keepdims=True)
+        ridge_preds[:, 0:5] /= ridge_preds[:, 0:5].sum(1, keepdims=True)
         # normalise the 'W' predictions
-        rf_preds[:, 5:9] /= rf_preds[:, 5:9].sum(1, keepdims=True)
-        rms_scores_rf[fold_n] = np.sqrt(np.sum(np.array(np.array(rf_preds-y_eval)**2)/(len(fold_eval_indices)*24.0)))
+        ridge_preds[:, 5:9] /= ridge_preds[:, 5:9].sum(1, keepdims=True)
+        rms_scores_ridge[fold_n] = np.sqrt(np.sum(np.array(np.array(ridge_preds-y_eval)**2)/(len(fold_eval_indices)*24.0)))
 
         #combine predictions
-        comb_preds = weights[0]*lin_preds + weights[1]*rf_preds
+        comb_preds = weights[0]*lin_preds + weights[1]*ridge_preds
         rms_scores_comb[fold_n] = np.sqrt(np.sum(np.array(np.array(comb_preds-y_eval)**2)/(len(fold_eval_indices)*24.0)))
 
         fold_n += 1
 
     print("Mean Linear RMS error:{}, Std:{}".format(np.mean(rms_scores_lin), np.std(rms_scores_lin)))
-    print("Mean RF RMS error:{}, Std:{}".format(np.mean(rms_scores_rf), np.std(rms_scores_rf)))
+    print("Mean Ridge RMS error:{}, Std:{}".format(np.mean(rms_scores_ridge), np.std(rms_scores_ridge)))
     print("Mean Combined RMS error:{}, Std:{}".format(np.mean(rms_scores_comb), np.std(rms_scores_comb)))
 
 if __name__ == "__main__":
     #df = load_raw_tweets()
     df = pd.read_csv(os.path.join("data", "train.csv"))
-    gen_cv_predictions(df, cache_results=False, non_sparse=False)
+    #gen_cv_predictions(df)
     eval_model(df)
