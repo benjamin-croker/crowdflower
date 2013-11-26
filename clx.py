@@ -5,7 +5,6 @@ import pickle
 
 from sklearn.linear_model import LinearRegression
 from sklearn.ensemble import RandomForestRegressor
-from sklearn.metrics import mean_squared_error
 from sklearn.cross_validation import KFold
 from sklearn.feature_extraction.text import TfidfVectorizer
 
@@ -29,18 +28,18 @@ def remove_stopwords(concat_tweets):
             for tweets in concat_tweets]
 
 
-def eval_model(df):
-    # perform k-fold validation
+def gen_cv_predictions(df):
+    """ Generates predictions for 10-fold cross validation
+    """
+
+    # generate the 10 fold splits
     kf = KFold(n=df.shape[0], n_folds=10, random_state=SEED, shuffle=True)
-    rms_scores_lin = np.zeros(10)
-    rms_scores_rf = np.zeros(10)
-    rms_scores_comb = np.zeros(10)
 
     all_lin_preds = []
     all_rf_preds = []
 
     fold_n = 0
-    
+
     # logistic regression model with defaults
     lin_cl = LinearRegression()
     # rf model
@@ -64,12 +63,10 @@ def eval_model(df):
 
         # convert to float arrays
         y_train = np.array(y_train, dtype="float")
-        y_eval = np.array(y_eval, dtype="float")
 
         print("Training linear model")
         lin_cl.fit(X_train, y_train)
         lin_preds = lin_cl.predict(X_eval)
-        rms_scores_lin[fold_n] = np.sqrt(np.sum(np.array(np.array(lin_preds-y_eval)**2)/(X_eval.shape[0]*24.0)))
 
         # save the predictions
         all_lin_preds.append(lin_preds)
@@ -87,17 +84,48 @@ def eval_model(df):
         print("Training random forest model")
         rf_cl.fit(X_train_dense, y_train)
         rf_preds = rf_cl.predict(X_eval_dense)
-        rms_scores_rf[fold_n] = np.sqrt(np.sum(np.array(np.array(rf_preds-y_eval)**2)/(X_eval.shape[0]*24.0)))
 
        # save the predictions
         all_rf_preds.append(rf_preds)
         with open("rf_preds.pkl", "wb") as f:
             pickle.dump(all_rf_preds, f)
 
+        fold_n += 1
+
+
+def eval_model(df, lin_preds_fn="lin_preds.pkl", rf_preds_fn="rf_preds.pkl", weights=(0.8, 0.2)):
+    """ evaluates the results of the 10 fold CV
+    """
+
+    # perform k-fold validation
+    kf = KFold(n=df.shape[0], n_folds=10, random_state=SEED, shuffle=True)
+    rms_scores_lin = np.zeros(10)
+    rms_scores_rf = np.zeros(10)
+    rms_scores_comb = np.zeros(10)
+
+    with open(lin_preds_fn) as f:
+        all_lin_preds = pickle.load(f)
+
+    with open(rf_preds_fn) as f:
+        all_rf_preds = pickle.load(f)
+
+    fold_n = 0
+
+    for train_indices, fold_eval_indices in kf:
+        y_eval = np.array(df)[fold_eval_indices, 4:]
+
+        # convert to float arrays
+        y_eval = np.array(y_eval, dtype="float")
+
+        lin_preds = all_lin_preds[fold_n]
+        rms_scores_lin[fold_n] = np.sqrt(np.sum(np.array(np.array(lin_preds-y_eval)**2)/(len(fold_eval_indices) * 24.0)))
+
+        rf_preds = all_rf_preds[fold_n]
+        rms_scores_rf[fold_n] = np.sqrt(np.sum(np.array(np.array(rf_preds-y_eval)**2)/(len(fold_eval_indices)*24.0)))
 
         #combine predictions
-        comb_preds = 0.8*lin_preds + 0.2*rf_preds
-        rms_scores_comb[fold_n] = np.sqrt(np.sum(np.array(np.array(comb_preds-y_eval)**2)/(X_eval.shape[0]*24.0)))
+        comb_preds = weights[0]*lin_preds + weights[1]*rf_preds
+        rms_scores_comb[fold_n] = np.sqrt(np.sum(np.array(np.array(comb_preds-y_eval)**2)/(len(fold_eval_indices)*24.0)))
 
         fold_n += 1
 
@@ -108,4 +136,5 @@ def eval_model(df):
 if __name__ == "__main__":
     #df = load_raw_tweets()
     df = pd.read_csv(os.path.join("data", "train.csv"))
+    #gen_cv_predictions(df)
     eval_model(df)
