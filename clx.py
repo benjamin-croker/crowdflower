@@ -151,5 +151,5 @@ def eval_model(df, lin_preds_fn="lin_preds.pkl", rf_preds_fn="rf_preds.pkl", wei
 if __name__ == "__main__":
     #df = load_raw_tweets()
     df = pd.read_csv(os.path.join("data", "train.csv"))
-    #gen_cv_predictions(df)
+    gen_cv_predictions(df, cache_results=False, non_sparse=False)
     eval_model(df)
