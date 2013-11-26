@@ -3,7 +3,7 @@ import numpy as np
 import os
 import pickle
 
-from sklearn.linear_model import LinearRegression
+from sklearn.linear_model import LinearRegression, Ridge
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.cross_validation import KFold
 from sklearn.feature_extraction.text import TfidfVectorizer
@@ -118,9 +118,20 @@ def eval_model(df, lin_preds_fn="lin_preds.pkl", rf_preds_fn="rf_preds.pkl", wei
         y_eval = np.array(y_eval, dtype="float")
 
         lin_preds = all_lin_preds[fold_n]
+        # probabilities for certain predictions should sum to 1
+        # normalise the 'S' predictions
+        print lin_preds[:, 5:9].sum(1, keepdims=True)
+        lin_preds[:, 0:5] /= lin_preds[:, 0:5].sum(1, keepdims=True)
+        # normalise the 'W' predictions
+        lin_preds[:, 5:9] /= lin_preds[:, 5:9].sum(1, keepdims=True)
+
         rms_scores_lin[fold_n] = np.sqrt(np.sum(np.array(np.array(lin_preds-y_eval)**2)/(len(fold_eval_indices) * 24.0)))
 
         rf_preds = all_rf_preds[fold_n]
+        # normalise the 'S' predictions
+        rf_preds[:, 0:5] /= rf_preds[:, 0:5].sum(1, keepdims=True)
+        # normalise the 'W' predictions
+        rf_preds[:, 5:9] /= rf_preds[:, 5:9].sum(1, keepdims=True)
         rms_scores_rf[fold_n] = np.sqrt(np.sum(np.array(np.array(rf_preds-y_eval)**2)/(len(fold_eval_indices)*24.0)))
 
         #combine predictions
