@@ -51,9 +51,6 @@ def gen_cv_predictions(df, ridge_preds_fn="ridge_preds.pkl"):
     # ridge regression model
     ridge_cl = Ridge(alpha=3.0)
 
-    # pre-process the tweets
-    df["tweet"] = stem_words(df["tweet"])
-
     for train_indices, fold_eval_indices in kf:
         print("Evaluating fold {} of {}".format(fold_n+1, 10))
         # take a tfidf vectorisation of the text
