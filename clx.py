@@ -9,6 +9,8 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 
 from nltk.corpus import stopwords
 from nltk.tokenize import RegexpTokenizer
+from nltk.stem.snowball import EnglishStemmer
+from nltk.stem.lancaster import LancasterStemmer
 
 SEED = 42
 
@@ -19,10 +21,19 @@ def lower_case(tweets):
 
 
 def remove_stopwords(tweets):
-    print("Removing Stopwords")
+    print("Removing stopwords")
     tokenizer = RegexpTokenizer(r'\w+')
+
     return [" ".join([w for w in tokenizer.tokenize(tweet.lower())
                       if w not in stopwords.words("english")])
+            for tweet in tweets]
+
+def stem_words(tweets):
+    print("Stemming words")
+    stemmer = LancasterStemmer()
+    tokenizer = RegexpTokenizer(r'\w+')
+
+    return [" ".join([stemmer.stem(w) for w in tokenizer.tokenize(tweet.lower())])
             for tweet in tweets]
 
 
@@ -41,7 +52,7 @@ def gen_cv_predictions(df, ridge_preds_fn="ridge_preds.pkl"):
     ridge_cl = Ridge(alpha=3.0)
 
     # pre-process the tweets
-    df["tweet"] = lower_case(df["tweet"])
+    df["tweet"] = stem_words(df["tweet"])
 
     for train_indices, fold_eval_indices in kf:
         print("Evaluating fold {} of {}".format(fold_n+1, 10))
@@ -151,8 +162,7 @@ if __name__ == "__main__":
     train_DF = pd.read_csv(os.path.join("data", "train.csv"))
     test_DF = pd.read_csv(os.path.join("data", "test.csv"))
 
-    # gen_cv_predictions(train_DF)
-    # eval_model(train_DF)
+    gen_cv_predictions(train_DF)
+    eval_model(train_DF)
 
-    submission(train_DF, test_DF)
-    
+    # submission(train_DF, test_DF)
