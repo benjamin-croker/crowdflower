@@ -93,6 +93,10 @@ def eval_model(df, lasso_preds_fn="lasso_preds.pkl", ridge_preds_fn="ridge_preds
         y_eval = np.array(y_eval, dtype="float")
 
         ridge_preds = all_ridge_preds[fold_n]
+
+        # no prediction should be less than zero
+        ridge_preds[ridge_preds < 0] = 0
+
         # normalise the 'S' predictions
         ridge_preds[:, 0:5] /= ridge_preds[:, 0:5].sum(1, keepdims=True)
         # normalise the 'W' predictions
@@ -126,6 +130,14 @@ def submission(train_DF, test_DF, output_filename="submission.csv"):
     ridge_cl.fit(X_train, y_train)
     preds = ridge_cl.predict(X_test)
 
+    # no prediction should be less than zero
+    preds[preds < 0] = 0
+
+    # normalise the 'S' predictions
+    preds[:, 0:5] /= preds[:, 0:5].sum(1, keepdims=True)
+    # normalise the 'W' predictions
+    preds[:, 5:9] /= preds[:, 5:9].sum(1, keepdims=True)
+
     # make a submission
     submission_DF = pd.DataFrame(data=preds, columns=train_DF.columns[4:])
     # add the id column
@@ -139,7 +151,8 @@ if __name__ == "__main__":
     train_DF = pd.read_csv(os.path.join("data", "train.csv"))
     test_DF = pd.read_csv(os.path.join("data", "test.csv"))
 
-    gen_cv_predictions(train_DF)
-    eval_model(train_DF)
+    # gen_cv_predictions(train_DF)
+    # eval_model(train_DF)
 
-    #submission(train_DF, test_DF)
+    submission(train_DF, test_DF)
+    
